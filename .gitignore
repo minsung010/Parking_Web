@@ -1,0 +1,9 @@
+node_modules/
+.vscode/
+Intel.code-workspace
+temp_doc.html
+공유누리 API 가이드_v2.2.pdf
+.DS_Store
+*.log
+.env
+scripts/firebase-config.js

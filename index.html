@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>주차장 예약</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script type="text/javascript"
+    src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f4de4178bee8f55fed343e03f6d0d803"></script>
+</head>
+
+<body class="bg-gray-100">
+  <div class="flex flex-col h-screen">
+    <header class="bg-white shadow z-20">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-blue-600 font-extrabold text-xl">파파고</span>
+          <span class="text-gray-500 text-sm">내 주차장 예약 서비스</span>
+        </div>
+        <nav class="flex items-center space-x-4 text-sm" id="nav-menu">
+          <a href="reservation-list.html" class="text-gray-700 hover:text-blue-600">내 예약</a>
+          <a href="login.html" id="nav-login" class="text-gray-700 hover:text-blue-600">로그인</a>
+          <a href="register.html" id="nav-register"
+            class="px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">회원가입</a>
+          <button id="nav-logout" class="hidden text-gray-700 hover:text-red-600 font-semibold">로그아웃</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1 relative">
+      <div id="map" class="w-full h-full"></div>
+
+      <div class="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-20">
+        <div class="bg-white/95 backdrop-blur rounded-full shadow-md px-4 py-2 flex items-center gap-3 text-sm">
+          <div class="flex-1 min-w-[120px]">
+            <label class="block text-[11px] text-gray-500 mb-0.5">시/도</label>
+            <select id="sido-select" class="w-full border border-gray-200 rounded-md px-2 py-1 text-xs">
+            </select>
+          </div>
+          <div class="flex-1 min-w-[120px]">
+            <label class="block text-[11px] text-gray-500 mb-0.5">시/군/구</label>
+            <select id="sgg-select" class="w-full border border-gray-200 rounded-md px-2 py-1 text-xs">
+              <option value="">전체</option>
+            </select>
+          </div>
+          <button id="search-btn"
+            class="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-semibold hover:bg-blue-700 whitespace-nowrap">
+            주차장 검색
+          </button>
+          <div id="loading-spinner" class="hidden">
+            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+              viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+              </path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <section id="lot-panel"
+        class="absolute left-0 right-0 bottom-0 translate-y-full transition-transform duration-300 ease-out z-20">
+        <div class="max-w-md mx-auto px-4 pb-4">
+          <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden text-sm">
+            <div id="lot-image-container" class="hidden h-32 w-full overflow-hidden">
+              <img id="lot-image" src="" alt="주차장 사진" class="w-full h-full object-cover">
+            </div>
+            <div class="flex items-start justify-between px-4 pt-3 pb-2 border-b">
+              <div class="pr-4">
+                <p id="lot-name" class="text-sm font-bold text-blue-700 truncate">주차장 이름</p>
+                <p id="lot-address" class="text-[11px] text-gray-500 mt-0.5 line-clamp-2">주소 정보</p>
+              </div>
+              <button id="lot-close" class="text-gray-400 hover:text-gray-600 text-lg leading-none"></button>
+            </div>
+            <div class="px-4 py-3 space-y-2 text-[12px] text-gray-700">
+              <div class="flex justify-between">
+                <span class="text-gray-500">주차면 수</span>
+                <span id="lot-spaces" class="font-bold"></span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">운영 시간</span>
+                <span id="lot-time" class="font-medium text-right ml-2 text-gray-900"></span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">요금 정보</span>
+                <span id="lot-fee" class="font-medium text-right ml-2 text-blue-600"></span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">연락처</span>
+                <span id="lot-tel" class="font-medium text-gray-900"></span>
+              </div>
+            </div>
+            <div class="px-4 pb-3 flex justify-end">
+              <button id="lot-reserve"
+                class="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors">
+                이 주차장 예약하기
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="error-overlay"
+        class="hidden absolute inset-0 bg-gray-100/80 backdrop-blur-sm z-30 flex items-center justify-center p-6 text-center">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm">
+          <h2 class="text-lg font-bold text-gray-900 mb-2">지도를 불러올 수 없습니다</h2>
+          <p id="error-message" class="text-sm text-gray-600 mb-6">카카오 지도 설정을 확인해 주세요.</p>
+          <div class="space-y-2">
+            <div class="text-xs text-left text-gray-500 bg-gray-50 p-4 rounded-xl space-y-2">
+              <p class="font-bold text-gray-700">해결 방법:</p>
+              <p>1. <a href="https://developers.kakao.com" target="_blank" class="text-blue-600 underline">카카오 개발자
+                  콘솔</a> 접속</p>
+              <p>2. [플랫폼 > Web] 항목에 내 주소 등록<br>
+                <code class="bg-gray-200 px-1 rounded">http://127.0.0.1:5500</code>
+              </p>
+              <p>3. Adblock 등 광고 차단 해제</p>
+            </div>
+            <button onclick="location.reload()"
+              class="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">다시
+              시도</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./scripts/auth.js"></script>
+  <script type="module">
+    import { db } from "./scripts/firebase-config.js";
+    import { ref, get } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js";
+
+    const AREA_DATA = {
+      "11": { name: "서울특별시", lat: 37.5665, lng: 126.9780, level: 8, sgg: { "680": "강남구", "740": "강동구", "305": "강북구", "500": "강서구", "620": "관악구", "215": "광진구", "530": "구로구", "545": "금천구", "350": "노원구", "320": "도봉구", "230": "동대문구", "590": "동작구", "440": "마포구", "410": "서대문구", "650": "서초구", "200": "성동구", "290": "성북구", "710": "송파구", "470": "양천구", "560": "영등포구", "170": "용산구", "380": "은평구", "110": "종로구", "140": "중구", "260": "중랑구" } },
+      "26": { name: "부산광역시", lat: 35.1796, lng: 129.0756, level: 8, sgg: { "440": "강서구", "410": "금정구", "290": "기장군", "260": "남구", "140": "동구", "200": "동래구", "470": "부산진구", "320": "북구", "170": "사상구", "380": "사하구", "110": "중구", "350": "해운대구" } },
+      "27": { name: "대구광역시", lat: 35.8714, lng: 128.6014, level: 8, sgg: { "200": "남구", "230": "달서구", "110": "중구" } },
+      "28": { name: "인천광역시", lat: 37.4563, lng: 126.7052, level: 8, sgg: { "110": "중구", "140": "동구", "170": "미추홀구", "185": "연수구", "200": "남동구", "230": "부평구", "245": "계양구", "260": "서구" } },
+      "29": { name: "광주광역시", lat: 35.1595, lng: 126.8526, level: 7, sgg: { "110": "동구", "140": "서구", "170": "남구", "200": "북구", "230": "광산구" } },
+      "30": { name: "대전광역시", lat: 36.3504, lng: 127.3845, level: 7, sgg: { "230": "대덕구", "110": "동구", "170": "서구", "200": "유성구", "140": "중구" } },
+      "31": { name: "울산광역시", lat: 35.5384, lng: 129.3114, level: 8, sgg: { "110": "중구", "140": "남구", "170": "동구", "200": "북구" } },
+      "36": { name: "세종특별자치시", lat: 36.4800, lng: 127.2600, level: 8, sgg: { "110": "세종시" } },
+      "41": { name: "경기도", lat: 37.4138, lng: 127.5183, level: 10, sgg: { "110": "수원시", "130": "성남시", "150": "의정부시", "170": "안양시", "190": "부천시", "210": "광명시", "220": "평택시" } },
+      "42": { name: "강원특별자치도", lat: 37.8228, lng: 128.1555, level: 11, sgg: { "110": "춘천시", "130": "원주시", "150": "강릉시" } },
+      "43": { name: "충청북도", lat: 36.6357, lng: 127.4917, level: 10, sgg: { "110": "청주시", "130": "충주시", "150": "제천시" } },
+      "44": { name: "충청남도", lat: 36.5184, lng: 126.8000, level: 10, sgg: { "130": "천안시", "150": "공주시", "180": "보령시", "200": "아산시" } },
+      "45": { name: "전라북도", lat: 35.7175, lng: 127.1530, level: 10, sgg: { "110": "전주시", "130": "군산시", "150": "익산시" } },
+      "46": { name: "전라남도", lat: 34.8679, lng: 126.9910, level: 10, sgg: { "110": "목포시", "130": "여수시", "150": "순천시" } },
+      "47": { name: "경상북도", lat: 36.4919, lng: 128.8889, level: 11, sgg: { "110": "포항시", "130": "경주시", "150": "김천시" } },
+      "48": { name: "경상남도", lat: 35.4606, lng: 128.2132, level: 10, sgg: { "110": "창원시", "130": "진주시", "150": "통영시" } },
+      "50": { name: "제주특별자치도", lat: 33.4996, lng: 126.5312, level: 9, sgg: { "110": "제주시", "130": "서귀포시" } }
+    };
+
+    const SIDO_CODES = Object.keys(AREA_DATA);
+
+    const errorOverlay = document.getElementById('error-overlay');
+    const errorMessage = document.getElementById('error-message');
+    const sidoSelect = document.getElementById('sido-select');
+    const sggSelect = document.getElementById('sgg-select');
+    const searchBtn = document.getElementById('search-btn');
+    const loadingSpinner = document.getElementById('loading-spinner');
+
+    function initAreaSelect() {
+      const allOption = document.createElement('option');
+      allOption.value = "";
+      allOption.textContent = "전국";
+      sidoSelect.appendChild(allOption);
+
+      for (const code of SIDO_CODES) {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = AREA_DATA[code].name;
+        sidoSelect.appendChild(option);
+      }
+
+      sidoSelect.value = "";
+      updateSggSelect("");
+
+      sidoSelect.addEventListener('change', (e) => {
+        updateSggSelect(e.target.value);
+      });
+    }
+
+    function updateSggSelect(sidoCode) {
+      sggSelect.innerHTML = '<option value="">전체</option>';
+      if (!sidoCode || !AREA_DATA[sidoCode]) return;
+
+      const sggList = AREA_DATA[sidoCode].sgg;
+      for (const code in sggList) {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = sggList[code];
+        sggSelect.appendChild(option);
+      }
+    }
+
+    initAreaSelect();
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorOverlay.classList.remove('hidden');
+    }
+
+    function showLoading(show) {
+      if (show) {
+        loadingSpinner.classList.remove('hidden');
+        searchBtn.disabled = true;
+      } else {
+        loadingSpinner.classList.add('hidden');
+        searchBtn.disabled = false;
+      }
+    }
+
+    if (typeof kakao === 'undefined' || !kakao.maps) {
+      showError("카카오 지도 SDK가 로드되지 않았습니다. API 키와 도메인 설정을 확인해 주세요.");
+    } else {
+      const mapContainer = document.getElementById('map');
+      const mapOption = {
+        center: new kakao.maps.LatLng(36.3504, 127.3845),
+        level: 7
+      };
+
+      const map = new kakao.maps.Map(mapContainer, mapOption);
+      let markers = [];
+
+      const lotPanel = document.getElementById('lot-panel');
+      const lotNameEl = document.getElementById('lot-name');
+      const lotAddressEl = document.getElementById('lot-address');
+      const lotSpacesEl = document.getElementById('lot-spaces');
+      const lotTimeEl = document.getElementById('lot-time');
+      const lotFeeEl = document.getElementById('lot-fee');
+      const lotTelEl = document.getElementById('lot-tel');
+      const lotReserveBtn = document.getElementById('lot-reserve');
+      const lotCloseBtn = document.getElementById('lot-close');
+
+      let selectedLot = null;
+
+      const lotImageContainer = document.getElementById('lot-image-container');
+      const lotImageEl = document.getElementById('lot-image');
+
+      function openLotPanel(lot) {
+        selectedLot = lot;
+        lotNameEl.textContent = lot.name || "주차장";
+        lotAddressEl.textContent = lot.address || "";
+        lotSpacesEl.textContent = `${lot.spaces || "-"}면`;
+        lotTimeEl.textContent = lot.operTime || "정보 없음";
+        lotFeeEl.textContent = lot.fee || "정보 없음";
+        lotTelEl.textContent = lot.tel || "정보 없음";
+
+        if (lot.imgUrl && lot.imgUrl.startsWith('http')) {
+          lotImageEl.src = lot.imgUrl;
+          lotImageContainer.classList.remove('hidden');
+        } else {
+          lotImageContainer.classList.add('hidden');
+        }
+
+        lotPanel.classList.remove('translate-y-full');
+      }
+
+      function closeLotPanel() {
+        lotPanel.classList.add('translate-y-full');
+        selectedLot = null;
+      }
+
+      lotCloseBtn.addEventListener('click', closeLotPanel);
+
+      lotReserveBtn.addEventListener('click', () => {
+        if (selectedLot) {
+          const params = new URLSearchParams({
+            name: selectedLot.name,
+            address: selectedLot.address,
+            spaces: selectedLot.spaces,
+            fee: selectedLot.fee,
+            time: selectedLot.operTime,
+            tel: selectedLot.tel,
+            instUrl: selectedLot.instUrl,
+            imgUrl: selectedLot.imgUrl
+          });
+          window.location.href = `reserve.html?${params.toString()}`;
+        }
+      });
+
+      function addMarkersFromItems(items) {
+        items.forEach(lot => {
+          const lat = parseFloat(lot.la || lot.lat || lot.latitude || lot.Y || 0);
+          const lng = parseFloat(lot.lo || lot.lot || lot.longitude || lot.X || 0);
+
+          if (!lat || !lng || lat === 0 || lng === 0) return;
+
+          const lotInfo = {
+            name: lot.rsrcNm || lot.prkplceNm || "주차장",
+            address: lot.addr || lot.rdnmadr || lot.lnmadr || "",
+            spaces: lot.prkplceCo || lot.prkcmprt || "-",
+            fee: lot.parkingchrgeInfo || "무료",
+            operTime: lot.weekdayOperOpenHhmm && lot.weekdayOperColseHhmm
+                      ? `${lot.weekdayOperOpenHhmm} ~ ${lot.weekdayOperColseHhmm}`
+                      : "정보 없음",
+            tel: lot.telNo || lot.phoneNumber || "정보 없음",
+            instUrl: lot.instUrlAddr || "",
+            imgUrl: lot.imgFileUrlAddr || "",
+            raw: lot
+          };
+
+          const marker = new kakao.maps.Marker({
+            position: new kakao.maps.LatLng(lat, lng),
+            map: map
+          });
+
+          markers.push(marker);
+          kakao.maps.event.addListener(marker, 'click', () => openLotPanel(lotInfo));
+        });
+      }
+
+      async function fetchRegion(sidoCode) {
+        try {
+          const url = `http://localhost:3000/api/parking?sidoCode=${sidoCode}`;
+          const response = await fetch(url);
+          if (!response.ok) return [];
+          const data = await response.json();
+          return data.data || (data.body && data.body.items) || (Array.isArray(data) ? data : []);
+        } catch (e) {
+          return [];
+        }
+      }
+
+      async function loadAllRegions() {
+        showLoading(true);
+        let totalCount = 0;
+
+        for (const sidoCode of SIDO_CODES) {
+          const items = await fetchRegion(sidoCode);
+          addMarkersFromItems(items);
+          totalCount += items.length;
+        }
+
+        showLoading(false);
+      }
+
+      searchBtn.addEventListener('click', () => {
+        closeLotPanel();
+        const sidoCode = sidoSelect.value;
+
+        if (!sidoCode) {
+          map.setCenter(new kakao.maps.LatLng(36.0, 127.5));
+          map.setLevel(13);
+          return;
+        }
+
+        const area = AREA_DATA[sidoCode];
+        if (area) {
+          map.setCenter(new kakao.maps.LatLng(area.lat, area.lng));
+          map.setLevel(area.level);
+        }
+      });
+
+      loadAllRegions();
+    }
+  </script>
+</body>
+
+</html>

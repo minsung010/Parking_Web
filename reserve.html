@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>예약</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100">
+  <div class="flex flex-col min-h-screen">
+
+    <header class="bg-white shadow z-20">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <a href="index.html" class="flex items-center space-x-2">
+            <span class="text-blue-600 font-extrabold text-xl">파파고</span>
+            <span class="text-gray-500 text-sm">내 주차장 예약 서비스</span>
+          </a>
+        </div>
+        <nav class="flex items-center space-x-4 text-sm" id="nav-menu">
+          <a href="reservation-list.html" class="text-gray-700 hover:text-blue-600">내 예약</a>
+          <a href="login.html" id="nav-login" class="text-gray-700 hover:text-blue-600">로그인</a>
+          <a href="register.html" id="nav-register"
+            class="px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">회원가입</a>
+          <button id="nav-logout" class="hidden text-gray-700 hover:text-red-600 font-semibold">로그아웃</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1 flex items-center justify-center px-4 py-8">
+      <div class="w-full max-w-md">
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <h2 class="text-xl font-bold mb-4 text-gray-900">예약하기</h2>
+          <p class="text-xs text-gray-500 mb-4">선택하신 주차장의 정보를 확인하고 예약을 진행해 주세요.</p>
+
+          <div id="lot-info" class="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-md p-3"></div>
+
+          <form id="reservation-form" class="space-y-4">
+            <div>
+              <label for="name" class="block text-sm font-semibold text-gray-800 mb-1">이름</label>
+              <input type="text" id="name"
+                class="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="이름을 입력하세요" required />
+            </div>
+            <div>
+              <label for="date" class="block text-sm font-semibold text-gray-800 mb-1">예약 날짜</label>
+              <input type="date" id="date"
+                class="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required />
+            </div>
+            <div>
+              <label for="time" class="block text-sm font-semibold text-gray-800 mb-1">예약 시간</label>
+              <input type="time" id="time"
+                class="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required />
+            </div>
+            <button type="submit"
+              class="w-full bg-blue-600 text-white py-2 rounded-md text-sm font-semibold hover:bg-blue-700">예약하기</button>
+          </form>
+
+          <button id="reserve-button"
+            class="w-full bg-gray-800 text-white px-4 py-2 rounded-md mt-3 text-sm hover:bg-black">이 주차장 예약 목록
+            보기</button>
+
+          <div id="reservation-list" class="mt-4 text-sm text-gray-800 space-y-2"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./scripts/auth.js"></script>
+  <script type="module">
+    import { db, auth } from "./scripts/firebase-config.js";
+    import { ref, push, get } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const lotName = params.get('name');
+    const address = params.get('address');
+    const spaces = params.get('spaces');
+    const fee = params.get('fee');
+    const time = params.get('time');
+    const tel = params.get('tel');
+    const instUrl = params.get('instUrl');
+    const imgUrl = params.get('imgUrl');
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+    });
+
+    let infoHtml = `
+      <div class="space-y-1">
+    `;
+
+    if (imgUrl && imgUrl.startsWith('http')) {
+      infoHtml += `
+        <div class="mb-4 rounded-xl overflow-hidden h-40 shadow-sm border border-gray-100">
+          <img src="${imgUrl}" alt="주차장 사진" class="w-full h-full object-cover">
+        </div>
+      `;
+    }
+
+    infoHtml += `
+        <p class="text-lg font-bold text-blue-700">${lotName}</p>
+        <p class="text-xs text-gray-500 mb-2"> ${address}</p>
+        <div class="grid grid-cols-2 gap-2 mt-3 text-xs border-t pt-2">
+          <p><span class="text-gray-400">주차면 수:</span> ${spaces}면</p>
+          <p><span class="text-gray-400">요금:</span> ${fee || "무료"}</p>
+          <p class="col-span-2"><span class="text-gray-400">운영시간:</span> ${time || "정보없음"}</p>
+          <p class="col-span-2"><span class="text-gray-400">연락처:</span> ${tel || "정보없음"}</p>
+        </div>
+    `;
+
+    if (instUrl && instUrl.startsWith('http')) {
+      infoHtml += `
+        <div class="mt-4 pt-2 border-t text-center">
+          <a href="${instUrl}" target="_blank" 
+             class="text-[11px] text-blue-500 hover:text-blue-700 font-medium border-b border-blue-200 pb-0.5">
+             공유누리 공식 시설 정보 상세보기 
+          </a>
+        </div>
+      `;
+    }
+
+    infoHtml += `</div>`;
+    document.getElementById("lot-info").innerHTML = infoHtml;
+
+    document.getElementById('reservation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!currentUser) {
+        alert("로그인이 필요한 서비스입니다. 로그인 후 이용해 주세요.");
+        window.location.href = "login.html";
+        return;
+      }
+
+      const name = document.getElementById('name').value;
+      const date = document.getElementById('date').value;
+      const timeVal = document.getElementById('time').value;
+
+      try {
+
+        await push(ref(db, `reservations/${lotName}`), {
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+          name,
+          date,
+          time: timeVal,
+          lotName,
+          address,
+          timestamp: Date.now()
+        });
+
+        alert(" 예약이 완료되었습니다!");
+        window.location.href = "index.html";
+      } catch (err) {
+        console.error("예약 오류:", err);
+        alert(" 예약 실패: " + err.message);
+      }
+    });
+
+    document.getElementById('reserve-button').addEventListener('click', async () => {
+      if (!lotName) return;
+
+      try {
+        const reservationsRef = ref(db, `reservations/${lotName}`);
+        const snapshot = await get(reservationsRef);
+        const reservations = snapshot.val();
+
+        if (!reservations) {
+          document.getElementById('reservation-list').innerHTML = "<p class='text-xs text-gray-400 text-center py-4'>예약된 내역이 없습니다.</p>";
+          return;
+        }
+
+        const reservationList = Object.values(reservations).map(reservation => `
+          <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
+            <p class="text-xs font-bold text-gray-800"> ${reservation.name}</p>
+            <p class="text-[11px] text-gray-500"> ${reservation.date} |  ${reservation.time}</p>
+          </div>
+        `).join("");
+
+        document.getElementById('reservation-list').innerHTML = reservationList;
+      } catch (err) {
+        console.error("예약 목록 로드 오류:", err);
+      }
+    });
+
+  </script>
+</body>
+
+</html>

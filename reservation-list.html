@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>예약 목록</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+  <div class="flex flex-col min-h-screen">
+
+    <header class="bg-white shadow z-20">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <a href="index.html" class="flex items-center space-x-2">
+            <span class="text-blue-600 font-extrabold text-xl">파파고</span>
+            <span class="text-gray-500 text-sm">내 주차장 예약 서비스</span>
+          </a>
+        </div>
+        <nav class="flex items-center space-x-4 text-sm" id="nav-menu">
+          <span class="text-gray-900 font-semibold">내 예약</span>
+          <a href="login.html" id="nav-login" class="text-gray-700 hover:text-blue-600">로그인</a>
+          <a href="register.html" id="nav-register"
+            class="px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">회원가입</a>
+          <button id="nav-logout" class="hidden text-gray-700 hover:text-red-600 font-semibold">로그아웃</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1 bg-gray-100 py-6 px-4">
+      <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h1 class="text-xl font-bold text-gray-900">내 예약 현황</h1>
+          <a href="index.html" class="text-xs text-blue-600 hover:underline">지도에서 주차장 다시 선택하기</a>
+        </div>
+        <div id="reservation-list" class="space-y-4"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./scripts/auth.js"></script>
+  <script type="module">
+    import { db, auth } from "./scripts/firebase-config.js";
+    import { ref, get } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
+
+    const listContainer = document.getElementById("reservation-list");
+
+    async function loadReservations(user) {
+      if (!user) {
+        listContainer.innerHTML = "<p class='text-sm text-gray-500 text-center py-8'>로그인이 필요합니다.</p>";
+        return;
+      }
+
+      try {
+        const snapshot = await get(ref(db, "reservations"));
+        const data = snapshot.val();
+
+        if (!data) {
+          listContainer.innerHTML = "<p class='text-sm text-gray-500 text-center py-8'>예약된 내역이 없습니다.</p>";
+          return;
+        }
+
+        let userReservationsFound = false;
+        listContainer.innerHTML = ""; 
+
+        for (const lotName in data) {
+          const reservations = data[lotName];
+          const userEntries = Object.values(reservations).filter(r => r.userId === user.uid);
+
+          if (userEntries.length > 0) {
+            userReservationsFound = true;
+            const card = document.createElement("div");
+            card.className = "border border-gray-200 p-4 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow";
+
+            const header = `
+              <div class="flex items-center justify-between mb-3 border-b pb-2">
+                <h2 class="font-bold text-blue-800"> ${lotName}</h2>
+              </div>
+            `;
+
+            const entries = userEntries
+              .map(r => `
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">예약 일시</span>
+                    <span class="font-semibold text-gray-900">${r.date} ${r.time}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-xs mt-1">
+                    <span class="text-gray-500">예약자명</span>
+                    <span class="font-medium text-gray-700">${r.name}</span>
+                  </div>
+                </div>
+              `)
+              .join("");
+
+            card.innerHTML = header + entries;
+            listContainer.appendChild(card);
+          }
+        }
+
+        if (!userReservationsFound) {
+          listContainer.innerHTML = "<p class='text-sm text-gray-500 text-center py-8'>내 예약 내역이 없습니다.</p>";
+        }
+      } catch (err) {
+        console.error("예약 목록 로드 오류:", err);
+        listContainer.innerHTML = "<p class='text-red-500 text-center py-8'> 예약 목록을 불러오는 중 오류가 발생했습니다.</p>";
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      loadReservations(user);
+    });
+  </script>
+</body>
+
+</html>
